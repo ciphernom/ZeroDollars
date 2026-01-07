@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect x='32' y='32' width='448' height='448' rx='110' fill='%236366f1'/><circle cx='256' cy='256' r='120' stroke='white' stroke-width='48'/><path d='M186 326L326 186' stroke='white' stroke-width='48'/></svg>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#6366f1">
+    <title>ZeroDollars</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="lib/chart.min.js"></script>
+    <script src="lib/peerjs.min.js"></script>
+    <script src="lib/qrcode.min.js"></script>
+    <script src="lib/html5-qrcode.min.js"></script>
+    <script src="lib/nostr.bundle.js"></script>
+    <script src="lib/wabt.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-theme="light">
+
+<div id="pin-lock" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-primary); z-index:2000; flex-direction:column; justify-content:center; align-items:center;">
+    <div style="text-align:center; width: 90%; max-width: 300px;">
+        <h2 id="pin-title" style="margin-bottom: 20px; color: var(--text-primary);">Enter PIN</h2>
+        <input type="tel" id="pin-input" maxlength="4" placeholder="••••" style="width:100%; text-align:center; font-size:2.5rem; letter-spacing:10px; margin-bottom: 20px; padding: 15px; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary);">
+        <div style="display: flex; gap: 10px;">
+            <button id="pin-forgot" class="btn-secondary" style="flex: 1;">Forgot?</button>
+            <button id="pin-submit" class="btn-primary" style="flex: 1;">Unlock</button>
+        </div>
+        <p id="pin-error" style="color: var(--danger); margin-top: 15px; min-height: 20px; opacity: 0; transition: opacity 0.2s;"></p>
+    </div>
+</div>
+
+<header id="header">
+    <h1>
+        <svg width="36" height="36" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="header_gradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#ffffff" />
+                    <stop offset="100%" stop-color="#e0e7ff" />
+                </linearGradient>
+            </defs>
+            <rect x="32" y="32" width="448" height="448" rx="110" fill="url(#header_gradient)" fill-opacity="0.2" />
+            <circle cx="256" cy="256" r="120" stroke="white" stroke-width="48" stroke-linecap="round" />
+            <path d="M186 326L326 186" stroke="white" stroke-width="48" stroke-linecap="round" />
+        </svg>
+        ZeroDollars
+    </h1>
+    <button id="hamburger-btn" aria-label="Menu">☰</button>
+
+    <div id="action-menu" class="action-menu">
+        <button id="theme-toggle"><span>🌙</span><span class="btn-label">Theme</span></button>
+        <button id="export-btn"><span>📤</span><span class="btn-label">Export</span></button>
+        <label for="import-file" class="import-btn"><span>📥</span><span class="btn-label">Import JSON</span></label>
+        <input type="file" id="import-file" class="input-file" accept=".json">
+        <button id="plugins-btn"><span>🧩</span><span class="btn-label">Plugins</span></button>
+        <button id="sync-btn"><span>🔄</span><span class="btn-label">Sync</span></button>
+        <button id="lock-btn"><span>🔒</span><span class="btn-label">Lock</span></button>
+        <!-- CHANGED: Direct link to Studio -->
+        <button id="btn-open-studio"><span>🛠️</span><span class="btn-label">Extension Studio</span></button>
+    </div>
+</header>
+
+<nav class="tabs">
+    <button class="tab-btn active" data-tab="budget">Budget</button>
+    <button class="tab-btn" data-tab="accounts">Accounts</button>
+    <button class="tab-btn" data-tab="reports">Reports</button>
+    <button class="tab-btn" data-tab="marketplace">Store</button>
+</nav>
+
+<main>
+    <div id="to-be-budgeted">
+        <div>
+            <span style="font-size:0.8rem; color:var(--text-secondary); display:block;">To Be Budgeted</span>
+            <span id="tbb-amount">$0.00</span>
+        </div>
+        <button id="add-income-btn" class="btn-secondary" style="width:auto; padding: 8px 16px;">+ Income</button>
+    </div>
+
+    <section id="budget-tab" class="tab-content active">
+        <div class="month-nav">
+            <button id="prev-month" class="btn-secondary" style="width:auto; padding:5px 10px;">&lt;</button>
+            <span id="current-month"></span>
+            <button id="next-month" class="btn-secondary" style="width:auto; padding:5px 10px;">&gt;</button>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+            <input type="text" id="search-input" placeholder="Search jars..." style="margin-bottom:0;">
+            <button id="smart-fund-btn" class="btn-secondary" style="white-space:nowrap; width: auto;">✨ Auto-Fund</button>
+        </div>
+
+        <div id="envelopes-list"></div>
+
+        <div class="desktop-only-form">
+            <h3>Quick Add Jar</h3>
+            <form id="add-envelope-form" style="display:flex; gap:10px;">
+                <input type="text" id="new-envelope-name" placeholder="Jar Name" required style="margin:0;">
+                <button type="submit" class="btn-primary" style="width:auto;">Add</button>
+            </form>
+        </div>
+
+        <div id="scheduled-section" style="margin-top:30px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0;">Scheduled</h3>
+                <button id="detect-recurring" class="btn-secondary" style="padding:5px 10px; font-size:0.8rem; width:auto;">Detect</button>
+            </div>
+            
+            <div id="scheduled-list"></div>
+
+            <form id="add-scheduled-form" class="desktop-only-form" style="margin-top:10px;">
+                <h4>Add Scheduled </h4>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <input type="text" id="scheduled-name" placeholder="Bill Name" required>
+                    <input type="number" id="scheduled-amount" placeholder="Amount" step="0.01" required>
+                    <select id="scheduled-type">
+                        <option value="expense">Bill (Expense)</option>
+                        <option value="income">Pay/Income</option>
+                    </select>
+                    <select id="scheduled-frequency">
+                        <option value="monthly">Monthly</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="fortnightly">Fortnightly</option>
+                        <option value="yearly">Yearly</option>
+                        <option value="once">Once</option>
+                    </select>
+                    <input type="date" id="scheduled-date" required>
+                    <select id="scheduled-envelope"><option value="">Select Jar (Optional)</option></select>
+                    <select id="scheduled-account" required><option value="">Select Account</option></select>
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top:10px;">Save Bill</button>
+            </form>
+        </div>
+    </section>
+
+    <section id="accounts-tab" class="tab-content">
+        <div id="account-list-view">
+            <div class="desktop-only-form">
+                <h3>Add Account</h3>
+                <form id="add-account-form" style="display:grid; grid-template-columns: 1fr 1fr auto; gap:10px;">
+                    <input type="text" id="new-account-name" placeholder="Name" required>
+                    <input type="number" id="initial-balance" placeholder="Balance" step="0.01">
+                        <select id="new-account-type">
+                            <option value="cash">Cash/Debit</option>
+                            <option value="credit">Credit Card</option>
+                            <option value="asset">Asset</option>
+                        </select>
+                        <select id="new-account-currency">
+                            <option value="AUD">🇦🇺 AUD</option>
+                            <option value="USD">🇺🇸 USD</option>
+                            <option value="EUR">🇪🇺 EUR</option>
+                            <option value="GBP">🇬🇧 GBP</option>
+                            <option value="NZD">🇳🇿 NZD</option>
+                            <option value="BTC">₿ Bitcoin</option>
+                            <option value="ETH">Ξ Ethereum</option>
+                        </select>
+                    <button type="submit" class="btn-primary" style="grid-column: 1 / -1;">Add Account</button>
+                </form>
+            </div>
+            <div id="accounts-list"></div>
+        </div>
+
+        <div id="account-detail-view" style="display:none;">
+            <div style="display:flex; align-items:center; margin-bottom:15px;">
+                <button id="account-detail-back-btn" class="btn-secondary" style="margin-right:10px; width:auto;">&larr;</button>
+                <h3 id="account-detail-title" style="margin:0;">Ledger</h3>
+            </div>
+            
+            <div style="background:var(--bg-secondary); padding:10px; border-radius:var(--radius); margin-bottom:10px; display:flex; gap:10px;">
+                 <label for="import-csv-file" class="btn-secondary" style="flex:1; text-align:center; margin:0; justify-content:center;">Import CSV</label>
+                 <input type="file" id="import-csv-file" class="input-file" accept=".csv">
+            </div>
+
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <input type="search" id="ledger-search-input" placeholder="Search...">
+                <select id="ledger-filter-select">
+                    <option value="all">All</option>
+                    <option value="categorized">Categorized</option>
+                    <option value="uncategorized">Uncategorized</option>
+                </select>
+            </div>
+            <div id="account-detail-list"></div>
+            <input type="hidden" id="import-account-id"> 
+        </div>
+    </section>
+
+    <section id="reports-tab" class="tab-content">
+    </section>
+    <section id="marketplace-tab" class="tab-content">
+        </section>
+</main>
+
+<button id="fab-add-btn" aria-label="Add Item">+</button>
+
+<div id="creation-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3 style="text-align:center;">Create New...</h3>
+        <div class="creation-grid">
+            <div class="creation-card" id="fab-action-magic" style="background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%); border: 1px solid #6366f1;">
+                <span style="font-size: 2.5rem;">✨</span> 
+                <strong style="color: #4338ca;">Quick Spend</strong>
+            </div>
+            <div class="creation-card" id="fab-action-transaction">
+                <span>💸</span> <strong>Transaction</strong>
+            </div>
+            <div class="creation-card" id="fab-action-jar">
+                <span>🫙</span> <strong>New Jar</strong>
+            </div>
+            <div class="creation-card" id="fab-action-bill">
+                <span>📅</span> <strong>Scheduled Bill</strong>
+            </div>
+            <div class="creation-card" id="fab-action-account">
+                <span>🏦</span> <strong>Account</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="amount-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3 id="modal-title">Transaction</h3>
+        
+        <label>Amount</label>
+        <input type="number" id="modal-amount" step="0.01" placeholder="0.00" style="font-size:1.5rem; font-weight:bold;">
+        
+        <label>Date</label>
+        <input type="date" id="modal-date" style="padding: 12px; margin-bottom: 12px; width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary);">
+
+        <label>From/To Jar</label>
+        <select id="modal-jar"></select>
+        
+        <label>Payment Account</label>
+        <select id="payment-account"></select>
+        
+        <label>Note</label>
+        <input type="text" id="modal-note" placeholder="e.g. Coffee">
+        
+        <div style="margin:15px 0;">
+            <label><input type="checkbox" id="enable-split"> Enable Split</label>
+        </div>
+        
+        <div id="split-section" style="display:none; background:var(--bg-primary); padding:10px; border-radius:8px; border:1px solid var(--border);">
+            <div id="splits-list"></div>
+            <button id="add-split" class="btn-secondary" style="width:100%; margin-top:5px;">+ Add Split</button>
+        </div>
+        
+        <div class="modal-actions">
+            <button id="modal-cancel" class="btn-secondary">Cancel</button>
+            <button id="modal-confirm" class="btn-primary">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="add-jar-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Create New Jar</h3>
+        <input type="text" id="mobile-new-jar-name" placeholder="e.g. Groceries">
+        <button id="mobile-add-jar-btn" class="btn-primary">Create Jar</button>
+    </div>
+</div>
+
+<div id="add-account-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Add Account</h3>
+        <input type="text" id="mobile-account-name" placeholder="Name">
+        <input type="number" id="mobile-account-balance" placeholder="Balance" step="0.01">
+        <select id="mobile-account-type">
+            <option value="cash">Cash/Debit</option>
+            <option value="credit">Credit Card</option>
+            <option value="asset">Asset</option>
+        </select>
+        <select id="mobile-account-currency">
+            <option value="AUD">🇦🇺 AUD</option>
+            <option value="USD">🇺🇸 USD</option>
+            <option value="EUR">🇪🇺 EUR</option>
+            <option value="GBP">🇬🇧 GBP</option>
+            <option value="NZD">🇳🇿 NZD</option>
+            <option value="BTC">₿ Bitcoin</option>
+            <option value="ETH">Ξ Ethereum</option>
+        </select>
+        <button id="mobile-add-account-btn" class="btn-primary">Create Account</button>
+    </div>
+</div>
+
+<div id="add-scheduled-mobile-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Add Scheduled Bill</h3>
+        <input type="text" id="mob-sched-name" placeholder="Bill Name">
+        <input type="number" id="mob-sched-amount" placeholder="Amount" step="0.01">
+        <select id="mob-sched-type" style="margin-bottom:10px;">
+            <option value="expense">Bill (Expense)</option>
+            <option value="income">Pay/Income</option>
+        </select>
+        <select id="mob-sched-frequency">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+            <option value="fortnightly">Fortnightly</option>
+            <option value="yearly">Yearly</option>
+            <option value="once">Once</option>
+        </select>
+        <select id="mob-sched-envelope"><option value="">Select Jar (Optional)</option></select>
+        <select id="mob-sched-account"><option value="">Select Account</option></select>
+        <label>Next Due Date</label>
+        <input type="date" id="mob-sched-date">
+        <button id="mob-sched-save" class="btn-primary">Save Bill</button>
+    </div>
+</div>
+
+<div id="edit-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3 id="edit-title">Edit Jar</h3>
+        <input type="text" id="edit-name" placeholder="Name">
+        <input type="number" id="edit-goal" placeholder="Goal Amount">
+        <label>Goal Type</label>
+        <select id="edit-goal-type">
+            <option value="">None</option>
+            <option value="target">Target Balance</option>
+            <option value="monthly">Monthly Funding</option>
+        </select>
+        <label>Target Date</label>
+        <input type="date" id="edit-target-date">
+        <div class="modal-actions">
+            <button id="edit-cancel" class="btn-secondary">Cancel</button>
+            <button id="edit-save" class="btn-primary">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="transfer-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Transfer Funds</h3>
+        <label>From</label><select id="transfer-from"></select>
+        <label>To</label><select id="transfer-to"></select>
+        <label>Amount</label><input type="number" id="transfer-amount" placeholder="0.00">
+        <label>Note</label><input type="text" id="transfer-note" placeholder="Reason">
+        <div class="modal-actions">
+            <button id="transfer-cancel" class="btn-secondary">Cancel</button>
+            <button id="transfer-confirm" class="btn-primary">Transfer</button>
+        </div>
+    </div>
+</div>
+
+<div id="account-transfer-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Transfer Between Accounts</h3>
+        <label>From Account</label><select id="acc-trans-from"></select>
+        <label>To Account</label><select id="acc-trans-to"></select>
+        <label>Amount</label><input type="number" id="acc-trans-amount" step="0.01" placeholder="0.00" style="font-size:1.5rem; font-weight:bold;">
+        <label>Note</label><input type="text" id="acc-trans-note" placeholder="e.g. Savings">
+        <div class="modal-actions">
+            <button id="acc-trans-cancel" class="btn-secondary">Cancel</button>
+            <button id="acc-trans-confirm" class="btn-primary">Transfer</button>
+        </div>
+    </div>
+</div>
+
+<div id="cover-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Cover Overspending</h3>
+        <label>Take From</label><select id="cover-from"></select>
+        <label>Covering For: <span id="cover-to-name" style="font-weight:bold;"></span></label>
+        <input type="number" id="cover-amount">
+        <label>Note</label><textarea id="cover-note"></textarea>
+        <div class="modal-actions">
+            <button id="cover-cancel" class="btn-secondary">Cancel</button>
+            <button id="cover-confirm" class="btn-primary">Cover</button>
+        </div>
+    </div>
+</div>
+
+<div id="edit-tx-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3 id="edit-tx-title">Edit Transaction</h3>
+        <label>Amount</label><input type="number" id="edit-tx-amount" step="0.01">
+        <label>Date</label><input type="datetime-local" id="edit-tx-date">
+        <label>Note</label><textarea id="edit-tx-note"></textarea>
+        <div class="modal-actions">
+            <button id="edit-tx-cancel" class="btn-secondary">Cancel</button>
+            <button id="edit-tx-save" class="btn-primary">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="history-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3 id="history-title">History</h3>
+        <div id="history-list"></div>
+        <button id="history-close" class="btn-primary" style="margin-top:15px; width:100%;">Close</button>
+    </div>
+</div>
+
+<div id="reassign-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Re-assign</h3>
+        <p id="reassign-tx-details" style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:10px;"></p>
+        <label>New Jar</label>
+        <select id="reassign-jar-select"></select>
+        <div class="modal-actions">
+            <button id="reassign-cancel" class="btn-secondary">Cancel</button>
+            <button id="reassign-confirm" class="btn-primary">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="confirm-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3 id="confirm-title">Confirm</h3>
+        <p id="confirm-description"></p>
+        <div class="modal-actions">
+            <button id="confirm-cancel" class="btn-secondary">No</button>
+            <button id="confirm-yes" class="btn-primary">Yes</button>
+        </div>
+    </div>
+</div>
+
+<div id="sync-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Sync Devices</h3>
+        <div id="sync-status-indicator" style="padding:15px; border:1px solid var(--border); border-radius:8px; text-align:center; margin-bottom:15px; font-weight:bold;">Checking status...</div>
+        <div id="sync-status-text" style="text-align:center; margin-bottom:15px; color:var(--text-secondary);"></div>
+        <div id="state-unpaired" class="sync-state">
+            <button id="btn-start-scan" class="btn-primary" style="margin-bottom:15px;">📷 Scan Pairing QR</button>
+            <div id="qr-reader" style="display:none; margin-bottom:15px;"></div>
+            <div style="text-align:center; margin:15px; font-weight:bold; color:var(--text-secondary);">- OR -</div>
+            <button id="btn-manual-entry" class="btn-secondary" style="width: 100%; margin-bottom: 15px;">⌨️ Enter Key Manually</button>
+            <div id="manual-key-entry" style="display:none; margin-bottom:15px;">
+                <textarea id="manual-key-input" placeholder="Paste sync key..." style="width:100%; min-height:80px; padding:12px; border:1px solid var(--border); border-radius:8px; font-family:monospace; font-size:0.85rem;"></textarea>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button id="btn-import-manual-key" class="btn-primary" style="flex:1;">Import Key</button>
+                    <button id="btn-cancel-manual" class="btn-secondary" style="flex:1;">Cancel</button>
+                </div>
+            </div>
+            <button id="btn-become-host" class="btn-secondary" style="width: 100%;">👑 Show QR to Pair</button>
+        </div>
+        <div id="state-paired" class="sync-state" style="display:none;">
+            <div id="qr-display-container" style="display:none; text-align:center; margin-bottom:15px;">
+                <div id="qr-code" style="margin: 0 auto;"></div>
+            </div>
+            <div id="sync-key-display" style="display:none; margin-bottom:15px; padding:15px; background:var(--bg-primary); border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <label style="font-weight:600;">Your Sync Key:</label>
+                    <button id="btn-copy-key" class="btn-secondary" style="padding:6px 12px;">📋 Copy</button>
+                </div>
+                <div id="sync-key-text" style="font-family:monospace; font-size:0.75rem; word-break:break-all; padding:10px; background:var(--bg-secondary); border-radius:6px;"></div>
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:15px;">
+                <button id="btn-show-qr" class="btn-secondary" style="flex:1;">📱 QR</button>
+                <button id="btn-show-key" class="btn-secondary" style="flex:1;">🔑 Text</button>
+            </div>
+            <button id="btn-auto-sync" class="btn-primary" style="margin-bottom:15px;">🔄 Sync Now</button>
+            <button id="btn-unpair" class="btn-danger" style="width:100%;">Unpair Device</button>
+        </div>
+    </div>
+</div>
+
+<div id="edit-scheduled-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Edit Scheduled</h3>
+        <input type="hidden" id="edit-scheduled-id">
+        <label>Name</label><input type="text" id="edit-scheduled-name">
+        <label>Amount</label><input type="number" id="edit-scheduled-amount" step="0.01">
+        <label>Type</label>
+        <select id="edit-scheduled-type">
+            <option value="expense">Bill (Expense)</option>
+            <option value="income">Pay/Income</option>
+        </select>
+        <label>Frequency</label>
+        <select id="edit-scheduled-frequency">
+            <option value="once">Once</option>
+            <option value="weekly">Weekly</option>
+            <option value="fortnightly">Fortnightly</option> 
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="half_yearly">Half-Yearly</option>
+            <option value="yearly">Yearly</option>
+        </select>
+        <label>Jar</label><select id="edit-scheduled-envelope"></select>
+        <label>Account</label><select id="edit-scheduled-account"></select>
+        <label>Next Date</label><input type="date" id="edit-scheduled-date">
+        <div class="modal-actions">
+            <button id="edit-scheduled-cancel" class="btn-secondary">Cancel</button>
+            <button id="edit-scheduled-save" class="btn-primary">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="import-map-modal" class="modal">
+    <div class="modal-content">
+        <h3>Map Columns</h3>
+        <input type="hidden" id="import-account-id">
+        <div id="import-map-fields">
+            <label>Date</label><select id="map-col-date"></select>
+            <label>Payee</label><select id="map-col-payee"></select>
+            <label>Amount</label><select id="map-col-amount"></select>
+            <p style="text-align:center; margin:5px 0; font-weight:bold;">- OR -</p>
+            <label>Debit</label><select id="map-col-debit"></select>
+            <label>Credit</label><select id="map-col-credit"></select>
+        </div>
+        <div class="modal-actions">
+            <button id="import-map-cancel" class="btn-secondary">Cancel</button>
+            <button id="import-map-next" class="btn-primary">Next</button>
+        </div>
+    </div>
+</div>
+
+<div id="import-preview-modal" class="modal">
+    <div class="modal-content" style="max-width:800px;">
+        <h3 id="import-preview-title">Review Transactions</h3>
+        <div style="max-height:60vh; overflow-y:auto;">
+            <table style="width:100%; border-collapse: collapse;">
+                <tbody id="import-preview-list"></tbody>
+            </table>
+        </div>
+        <div class="modal-actions">
+            <button id="import-preview-cancel" class="btn-secondary">Cancel</button>
+            <button id="import-preview-confirm" class="btn-primary">Import</button>
+        </div>
+    </div>
+</div>
+
+<div id="reconcile-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Reconcile Account</h3>
+        <p>Enter current bank balance:</p>
+        <input type="number" id="reconcile-amount" step="0.01" placeholder="0.00">
+        <div class="modal-actions">
+            <button id="reconcile-cancel" class="btn-secondary">Cancel</button>
+            <button id="reconcile-confirm" class="btn-primary">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div id="suggestions-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Bill Suggestions</h3>
+        <div id="suggestions-list"></div>
+        <button id="suggestions-close" class="btn-primary" style="width:100%; margin-top:15px;">Close</button>
+    </div>
+</div>
+
+<div id="magic-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>✨ Magic Add</h3>
+        <p style="color:var(--text-secondary); margin-bottom:15px;">
+            Type like: <b>"25 maccas"</b> or <b>"150 groceries"</b>
+        </p>
+        <input type="text" id="magic-input" placeholder="e.g. 4.50 coffee" style="font-size:1.2rem; padding:15px;" autocomplete="off">
+        <div class="modal-actions">
+            <button id="magic-process" class="btn-primary">Auto-Fill</button>
+        </div>
+    </div>
+</div>
+
+<div id="plugin-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>Extensions</h3>
+        <div id="plugin-list" style="margin-bottom: 20px; max-height: 300px; overflow-y: auto;"></div>
+        <div style="border-top: 1px solid var(--border); padding-top: 15px;">
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 10px;">
+                Install .js or .zdp files to extend functionality.
+            </p>
+            <input type="file" id="plugin-file-input" accept=".js,.zdp,.gz" style="display: none;">
+            <button id="btn-upload-plugin" class="btn-primary" style="width: 100%;">
+                📥 Install Extension
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="studio-modal" class="modal studio-theme">
+    <div class="modal-content studio-content">
+        <!-- Header / Title Bar -->
+        <div class="studio-header">
+            <div class="studio-brand">
+                <span>⚡ Extension Studio</span>
+            </div>
+            
+            <div class="studio-toolbar">
+                <button id="studio-btn-new" class="tool-btn" title="New File (Cmd+N)">
+                    <span>📄</span> New
+                </button>
+                <button id="studio-btn-save" class="tool-btn" title="Save All (Cmd+S)">
+                    <span>💾</span> Save
+                </button>
+                
+                <div class="separator"></div>
+                
+                <button id="studio-btn-build" class="tool-btn primary" title="Build & Run (Cmd+B)">
+                    ⚡ Build & Run
+                </button>
+                <button id="studio-btn-publish" class="tool-btn accent" title="Publish to Marketplace">
+                    🚀 Publish
+                </button>
+            </div>
+
+            <div class="studio-window-controls">
+                <div id="studio-identity" class="identity-badge" title="Manage Developer Identity">
+                    <span class="status-dot"></span>
+                    <span id="studio-id-label">Guest</span>
+                </div>
+                <button id="studio-btn-min" class="win-btn" title="Toggle Sidebar">☰</button>
+                <button id="studio-btn-max" class="win-btn" title="Maximize">⤢</button>
+                <button id="studio-btn-close" class="win-btn close" title="Close">×</button>
+            </div>
+        </div>
+
+        <!-- Main Body -->
+        <div class="studio-body">
+            <!-- Sidebar / File Explorer -->
+            <div class="studio-sidebar">
+                <div class="sidebar-header">
+                    <span>Explorer</span>
+                </div>
+                <div id="studio-file-tree" class="file-tree">
+                    <!-- File items rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- Editor Area -->
+            <div class="studio-editor-area">
+                <div id="studio-tabs" class="editor-tabs">
+                    <!-- Tabs rendered dynamically -->
+                </div>
+                <div id="studio-editor-container" class="editor-container">
+                    <!-- CodeMirror editor injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer / Status Bar -->
+        <div class="studio-footer">
+            <div id="studio-status-bar">Ready</div>
+            <button id="studio-toggle-console" class="console-btn">⌃ Console</button>
+        </div>
+        
+        <!-- Console Panel -->
+        <div id="studio-console" class="studio-console">
+            <div class="console-header">
+                <span>Output</span>
+                <button id="studio-clear-console" title="Clear Console">🗑️ Clear</button>
+            </div>
+            <div id="studio-logs" class="console-logs">
+                <!-- Log lines rendered dynamically -->
+            </div>
+        </div>
+        
+        <!-- All dialogs are injected dynamically by ExtensionStudio.js -->
+    </div>
+</div>
+<div id="tax-report-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close">×</button>
+        <h3>📄 Capital Gains Tax Report</h3>
+        
+        <div id="tax-report-account" style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 15px;"></div>
+        
+        <label>Financial Year</label>
+        <select id="tax-report-fy">
+            <!-- Populated dynamically -->
+        </select>
+        
+        <div id="tax-report-summary" style="display: none; background: var(--bg-primary); border-radius: 8px; padding: 15px; margin: 15px 0; border: 1px solid var(--border);">
+            <div style="font-weight: 600; margin-bottom: 10px;">Summary Preview</div>
+            <div id="tax-summary-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;"></div>
+        </div>
+        
+        <div id="tax-report-empty" style="display: none; text-align: center; padding: 20px; color: var(--text-secondary);">
+            No disposals found for this financial year.
+        </div>
+        
+        <div class="modal-actions">
+            <button id="tax-report-cancel" class="btn-secondary">Cancel</button>
+            <button id="tax-report-preview" class="btn-secondary">Preview</button>
+            <button id="tax-report-download" class="btn-primary" disabled>Download CSV</button>
+        </div>
+    </div>
+</div>
+<div id="zap-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <button class="modal-close">×</button>
+        <div style="font-size: 3rem; margin-bottom: 10px;">⚡</div>
+        <h3>Pay Invoice</h3>
+        <p id="zap-amount" style="font-size: 1.2rem; font-weight: bold; color: var(--accent); margin: 0 0 15px 0;">
+            1000 sats
+        </p>
+        
+        <div id="zap-qr" style="background: white; padding: 15px; border-radius: 12px; display: inline-block; margin-bottom: 15px; border: 1px solid var(--border);"></div>
+        
+        <p style="font-size: 0.8rem; color: var(--text-secondary); word-break: break-all;" id="zap-string">
+            lnbc1...
+        </p>
+
+        <div class="modal-actions" style="flex-direction: column; gap: 10px;">
+            <button id="btn-copy-invoice" class="btn-secondary" style="width: 100%;">📋 Copy Invoice</button>
+            <button id="btn-check-payment" class="btn-primary" style="width: 100%;">✅ I Have Paid</button>
+        </div>
+    </div>
+</div>
+
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

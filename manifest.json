@@ -1,0 +1,16 @@
+{
+    "name": "ZeroDollars Budget",
+    "short_name": "ZeroDollars",
+    "description": "A smart local-first budgeting app",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "theme_color": "#6366f1",
+    "background_color": "#0f172a",
+    "icons": [
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNleHlfZ3JhZGllbnQiIHgxPSIwIiB5MT0iMCIgeDI9IjUxMiIgeTI9IjUxMiIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjNjM2NmYxIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM4YjVjZjYiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGZpbHRlciBpZD0ic29mdF9zaGFkb3ciIHg9Ii0yMCIgeT0iLTIwIiB3aWR0aD0iNTUyIiBoZWlnaHQ9IjU1MiIgZmlsdGVyVW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPGZlRHJvcFNoYWRvdyBkeD0iMCIgZHk9IjEwIiBzdGREZXZpYXRpb249IjE1IiBmbG9vZC1jb2xvcj0iIzQzMzhjYSIgZmxvb2Qtb3BhY2l0eT0iMC4zIi8+CiAgICA8L2ZpbHRlcj4KICA8L2RlZnM+CgogIDxyZWN0IHg9IjMyIiB5PSIzMiIgd2lkdGg9IjQ0OCIgaGVpZ2h0PSI0NDgiIHJ4PSIxMTAiIGZpbGw9InVybCgjc2V4eV9ncmFkaWVudCkiIGZpbHRlcj0idXJsKCNzb2Z0X3NoYWRvdykiIC8+CgogIDxjaXJjbGUgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMTIwIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjQ4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIC8+CgogIDxwYXRoIGQ9Ik0xODYgMzI2TDMyNiAxODYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iNDgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgLz4KICAKICA8cGF0aCBkPSJNMzkwIDEzMEw0MDAgMTEwTDQxMCAxMzBMNDMwIDE0MEw0MTAgMTUwTDQwMCAxNzBMMzkwIDE1MEwzNzAgMTQwTDM5MCAxMzBaIiBmaWxsPSJ3aGl0ZSIgZmlsbC1vcGFjaXR5PSIwLjkiIC8+Cjwvc3ZnPg==",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        }
+    ]
+}
